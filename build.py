@@ -254,7 +254,7 @@ def download_body(release, hashes, older):
         you haven't read.
       </p>
       {pprint_clip("One command (download, verify, install)", 'powershell -Command "irm https://netpaw.catboy.systems/install.ps1 | iex"')}
-      {pprint_clip("Verify only (download + hash + signature, no install)", 'powershell -Command "irm https://netpaw.catboy.systems/install.ps1 | iex -VerifyOnly"')}
+      {pprint_clip("Verify only (download + hash + signature, no install)", 'powershell -Command "& ([scriptblock]::Create((irm https://netpaw.catboy.systems/install.ps1))) -VerifyOnly"')}
       <details class="expanded"><summary>Show the expanded script — what the one-liner actually runs</summary>
 {pprint_clip("install.ps1 (readable)", install_ps1(ver, msi_url, msi_hash))}
       </details>
