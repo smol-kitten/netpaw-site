@@ -1,0 +1,46 @@
+{
+ "ok": true,
+ "readme": "README.md",
+ "type": "website",
+ "type_detected": "website",
+ "type_evidence": [
+  "nginx config"
+ ],
+ "type_confident": false,
+ "type_override": null,
+ "scanned_ts": 1791194339,
+ "sections": [
+  {
+   "title": "What it is",
+   "anchor": "what-it-is",
+   "hash": "d56170c3b9ce",
+   "chars": 1104
+  },
+  {
+   "title": "Security",
+   "anchor": "security",
+   "hash": "394605976d38",
+   "chars": 410
+  },
+  {
+   "title": "Rebuild",
+   "anchor": "rebuild",
+   "hash": "08306d19de95",
+   "chars": 503
+  },
+  {
+   "title": "Build locally",
+   "anchor": "build-locally",
+   "hash": "0217eeaa1306",
+   "chars": 116
+  }
+ ],
+ "changed_since_last": [
+  "what-it-is",
+  "security",
+  "rebuild",
+  "build-locally"
+ ],
+ "findings": [],
+ "verified_ts": 1791194339
+}
