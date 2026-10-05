@@ -13,6 +13,7 @@ import hashlib
 import html
 import json
 import os
+import posixpath
 import re
 import shutil
 import urllib.request
@@ -312,70 +313,55 @@ Write-Host 'NetPaw installed.'
 """
 
 
-def strip_md(md):
-    md = md.replace("\r\n", "\n")
-    fence_re = re.compile(r"```(\w*)\n(.*?)```", re.S)
-    fences = {}
+def strip_md(md, src_path=""):
+    """Render GitHub markdown to safe HTML (CommonMark + tables, raw HTML disabled).
 
-    def hf(m):
-        idx = len(fences)
-        fences[idx] = f"<pre><code>{esc(m.group(2))}</code></pre>"
-        return f"\x00{idx}\x00"
+    Relative links to other rendered docs go to their /docs/ page, other relative links to
+    GitHub; relative images are copied into /docs/img/ because the CSP only allows 'self'.
+    """
+    from markdown_it import MarkdownIt
+    mdi = MarkdownIt("commonmark", {"html": False, "linkify": False}).enable(["table", "strikethrough"])
+    base = posixpath.dirname(src_path)
+    by_path = {p.lower(): s for (s, _t, p) in DOCS}
 
-    md = fence_re.sub(hf, md)
-    md = re.sub(r"`([^`]+)`", lambda m: f"<code>{esc(m.group(1))}</code>", md)
-    md = re.sub(r"\[([^\]]+)\]\(([^)]+)\)",
-                lambda m: f"<a href='{esc(m.group(2))}'>{esc(m.group(1))}</a>", md)
-    lines = md.split("\n")
-    out = []
-    in_list = False
-    for line in lines:
-        s = line.strip()
-        if s == "":
-            if in_list:
-                out.append("</ul>")
-                in_list = False
-            continue
-        if s.startswith("#"):
-            if in_list:
-                out.append("</ul>")
-                in_list = False
-            level = len(line) - len(line.lstrip("#"))
-            out.append(f"<h{min(level,4)}>{esc(line.lstrip('#').strip())}</h{min(level,4)}>")
-        elif re.match(r"^[-*] ", s):
-            if not in_list:
-                out.append("<ul>")
-                in_list = True
-            out.append(f"<li>{s[2:].strip()}</li>")
-        elif re.match(r"^\d+\.", s):
-            if not in_list:
-                out.append("<ol>")
-                in_list = True
-            out.append(f"<li>{re.sub(r'^\\d+\\.\\s*', '', s)}</li>")
-        elif s.startswith(">"):
-            if in_list:
-                out.append("</ul>")
-                in_list = False
-            out.append(f"<blockquote>{esc(s.lstrip('>').strip())}</blockquote>")
-        elif s.startswith("|"):
-            if set(s.replace("|", "").strip()) == set("-:") or set(s.replace("|", "").strip()) <= set("-:"):
-                continue
-            cells = [c.strip() for c in s.strip("|").split("|")]
-            if not out or not out[-1].startswith("<p") and not out[-1].startswith("<table"):
-                out.append("<table><tr>" + "".join(f"<th>{esc(c)}</th>" for c in cells) + "</tr>")
-            else:
-                out.append("<tr>" + "".join(f"<td>{esc(c)}</td>" for c in cells) + "</tr>")
-        else:
-            if in_list:
-                out.append("</ul>")
-                in_list = False
-            out.append(f"<p>{s}</p>")
-    if in_list:
-        out.append("</ul>")
-    text = "\n".join(out)
-    for idx, htmlblk in fences.items():
-        text = text.replace(f"\x00{idx}\x00", htmlblk)
-    return text
+    def resolve(url):
+        if re.match(r"^[a-z]+:|^#|^/", url):
+            return None
+        path, _, frag = url.partition("#")
+        return posixpath.normpath(posixpath.join(base, path)), frag
+
+    def link_open(_self, tokens, idx, options, env):
+        t = tokens[idx]
+        r = resolve(t.attrGet("href") or "")
+        if r:
+            path, frag = r
+            slug = by_path.get(path.lower())
+            t.attrSet("href", f"/docs/{slug}/" + (f"#{frag}" if frag else "") if slug
+                      else f"https://github.com/{REPO}/blob/main/{path}" + (f"#{frag}" if frag else ""))
+        return mdi.renderer.renderToken(tokens, idx, options, env)
+
+    def image(_self, tokens, idx, options, env):
+        t = tokens[idx]
+        r = resolve(t.attrGet("src") or "")
+        if r:
+            name = posixpath.basename(r[0])
+            dst = os.path.join(OUT, "docs", "img", name)
+            if not os.path.exists(dst):
+                try:
+                    data = fetch(f"https://raw.githubusercontent.com/{REPO}/main/{r[0]}")
+                    os.makedirs(os.path.dirname(dst), exist_ok=True)
+                    open(dst, "wb").write(data)
+                except Exception as e:
+                    print("WARN doc image", r[0], e)
+            t.attrSet("src", f"/docs/img/{name}")
+        t.attrSet("loading", "lazy")
+        return mdi.renderer.image(tokens, idx, options, env)
+
+    mdi.add_render_rule("link_open", link_open)
+    mdi.add_render_rule("image", image)
+    html_out = mdi.render(md.replace("\r\n", "\n"))
+    # wide tables scroll inside their own box instead of breaking the page layout
+    return html_out.replace("<table>", '<div class="table-wrap"><table>').replace("</table>", "</table></div>")
 
 
 def main():
@@ -462,7 +448,7 @@ def main():
         <div class="card doc-index"><ul>{docindex}</ul></div>
         """))
     for slug, title, path in DOCS:
-        body = strip_md(raw_get(path))
+        body = strip_md(raw_get(path), path)
         commit = ""
         try:
             c = api(f"/commits?path={path}&per_page=1")

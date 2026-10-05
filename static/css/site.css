@@ -143,3 +143,9 @@ th { font-weight: 600; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* rendered docs: wide tables and code scroll inside their box */
+.table-wrap { overflow-x: auto; margin: 1em 0; }
+.docs-prose pre { overflow-x: auto; }
+.docs-prose img { max-width: 100%; height: auto; }
+.docs-prose td, .docs-prose th { vertical-align: top; }
