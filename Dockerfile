@@ -2,6 +2,7 @@
 FROM python:3.13-alpine AS build
 WORKDIR /src
 COPY . .
+RUN pip install --no-cache-dir -r requirements.txt
 ARG GITHUB_TOKEN=""
 RUN rm -rf out && GITHUB_TOKEN="$GITHUB_TOKEN" python3 build.py
 
