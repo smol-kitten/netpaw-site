@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 shots/
 .nolimit/
+.claude/TASKS.md
+.claude/tasks.json
