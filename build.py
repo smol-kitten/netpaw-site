@@ -367,8 +367,13 @@ def strip_md(md, src_path=""):
 def main():
     os.makedirs(OUT, exist_ok=True)
     releases = api("/releases?per_page=30")
-    release = releases[0]
-    older = [r for r in releases[1:] if not r.get("prerelease")]
+    # The site and install.ps1 serve the newest STABLE release only. A prerelease (rc) must never become
+    # the default download or the one-command install; it stays on GitHub as an opt-in.
+    stable = [r for r in releases if not r.get("prerelease") and not r.get("draft")]
+    if not stable:
+        raise SystemExit("build: no stable release found; refusing to publish a prerelease as latest")
+    release = stable[0]
+    older = stable[1:]
     ver = release["tag_name"]
 
     hashes = {}
