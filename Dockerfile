@@ -14,6 +14,9 @@ RUN rm -rf out && GITHUB_TOKEN="$GITHUB_TOKEN" python3 build.py
 
 # Stage 2: serve it.
 FROM nginx:1.27-alpine
+# Pull Alpine security fixes into the serving image on every build. CVE-2026-111497 (libbrotli, KEV):
+# the 10-30 rebuild still shipped brotli-libs 1.1.0-r2 because the base layer is cached; 3.21 has 1.1.1-r0.
+RUN apk upgrade --no-cache
 RUN rm -rf /usr/share/nginx/html/* /etc/nginx/conf.d/*
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /src/out/ /usr/share/nginx/html/
