@@ -47,3 +47,16 @@ jobs:
           name: site
           path: out/
           if-no-files-found: error
+
+      - name: Tell netpaw-site-deploy (repository_dispatch; needs the RELEASE_DISPATCH_TOKEN secret, else its hourly redeploy picks the image up)
+        if: github.event_name != 'pull_request' && env.DISPATCH != ''
+        env:
+          DISPATCH: ${{ secrets.RELEASE_DISPATCH_TOKEN || secrets.SITE_DISPATCH_TOKEN }}
+          VER: ${{ github.event.client_payload.version }}
+        run: |
+          # Runs after the image is pushed, so the redeploy pulls the new site (a dispatch straight from the NetPaw
+          # release job would redeploy before this build finished).
+          body=$(python3 -c 'import json,sys; print(json.dumps({"event_type":"netpaw-release","client_payload":{"version":sys.argv[1]}}))' "$VER")
+          curl -sS --fail -X POST https://api.github.com/repos/smol-kitten/netpaw-site-deploy/dispatches \
+            -H @<(printf 'Authorization: Bearer %s\n' "$DISPATCH") -H 'Accept: application/vnd.github+json' -d "$body"
+          echo "dispatched netpaw-release ${VER:-(site change)} to smol-kitten/netpaw-site-deploy"
